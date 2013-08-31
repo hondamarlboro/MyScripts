@@ -1,0 +1,99 @@
+/*
+App Store / Mac App Storeのアプリ情報をHTMLタグで出力
+- iPhone/iPad/Macを全部検索するのでEntityの指定不要（ストアのURL指定から直検索可）
+- テンプレートは"tmpl"でHTMLタグを調整（"や/はエスケープ処理必要）
+- Mac App Store用のテンプレート
+- PHG IDを変更
+- 出力先のURLスキーム変更可（DraftPadがデフォルト）
+!iPhoneとiPadで重複するユニバーサル対応アプリを排除したい!
+*/
+IS_HTML=true;
+
+var id="11l3L9"; //PHG ID
+//var editor = "dpad://?text=";
+var editor = "draftpad:///insert?after=";
+var limit = 5; //検索結果件数
+var iconw = 100;
+
+var type = new Array("software", "iPadSoftware", "macSoftware");
+var searchapi = new Array();
+var body = "";
+var tmpl = "";
+var header="<html>\n<head>\n<style type=text/css>\nbody{margin:0px;padding:5px;font-family:\"ヒラギノ角ゴ Pro W3\",\"Hiragino Kaku Gothic Pro\",\"メイリオ\", Meiryo, \"ＭＳ Ｐゴシック\",sans-serif;}\ntd{font-size:11pt;line-height:14pt}</style>\n</head>\n<body>\n<p><a style=\"text-decoration:none\" href=\"myscripts://listing\">[Close]</a></p>\n<table>";
+var footer = "</table>\n</body>\n</html>";
+
+var base = "http://itunes.apple.com/search?country=JP&entity=";
+
+var x = prompt("App Name?");
+if (x.match(/itunes\.apple\.com\/jp\/app/)){
+    x.match(/id([0-9_\-\.!~\*\|]+)/);
+    var appid = RegExp.$1;
+    var searchapi = "http://itunes.apple.com/lookup?id=" + appid + "&country=JP&limit=" + limit;
+} else {
+    for(var a = 0; a < 3; a++){
+        searchapi[a] = base + type[a] + "&limit=" + limit + "&term="+encodeURIComponent(x);
+        }
+}
+
+if(appid){
+    req =new XMLHttpRequest();
+    req.open("get", searchapi, false);
+    req.send(null);
+    res = req.responseText;
+    b = JSON.parse(res).results;
+    appstore(b);
+} else {
+    var req = new Array();
+    var res = new Array();
+    var j = new Array();
+
+    for (var m = 0; m < 3; m++){
+        req[m] =new XMLHttpRequest();
+        req[m].open("get", searchapi[m], false);
+        req[m].send(null);
+        res[m] = req[m].responseText;
+        j[m] = JSON.parse(res[m]).results;
+        
+        appstore(j[m]);
+        }
+}
+
+header + body + footer;
+
+function appstore(data){
+    for(var i=0; i < data.length; i++){
+        var app=data[i];
+        name=app.trackCensoredName;
+        url=app.trackViewUrl;
+        kind=app.kind;
+        icon60=app.artworkUrl60;        
+        tmp = app.artworkUrl100.split(".");
+        reg = new RegExp(tmp[tmp.length - 1] + '$');
+        icon100 = app.artworkUrl100.replace(reg, "100x100-75." + tmp[tmp.length - 1]);
+        icon100 = icon100.replace("512x512-75.", "");    
+        version=app.version;
+        price=app.formattedPrice;
+        artist=app.artistName;
+        artisturl=app.artistViewUrl;
+        genres=app.genres;
+        if(!app.averageUserRating) rating="評価がありません"; else rating=app.averageUserRating;
+        if(!app.userRatingCount) cnt="0"; else cnt=app.userRatingCount.toString().replace(/(\d)(?=(\d\d\d)+$)/g , "$1,");
+        appsize=Math.round((eval(app.fileSizeBytes)/1000000)*10)/10 + "MB";
+        if(id != "") aff = url + "&at=" + id; else aff = url;
+        if(id != "") selleraff = artisturl + "&at=" + id; else selleraff = artisturl;
+        var device = "";
+        if(kind != "mac-software" && app.screenshotUrls[0] && app.ipadScreenshotUrls[0]) device = "iOS";
+        if(kind != "mac-software" && app.screenshotUrls[0] && !app.ipadScreenshotUrls[0]) device = "iPhone";
+        if(kind != "mac-software" && !app.screenshotUrls[0] && app.ipadScreenshotUrls[0]) device = "iPad";
+        if(kind == "mac-software") device = "Mac";
+        
+        if(kind == "software"){
+            tmpl="<div style=\"background-color:azure;margin:10px 10px 10px 10px;padding:17px 10px 12px 10px;border-radius:15px;-moz-border-radius:15px;-webkit-border-radius:15px;min-height:100px;\"><img width=\""+iconw+"\" class=\"alignleft\" src=\""+icon100+"\" style=\"border-radius: 20px 20px 20px 20px;-moz-border-radius: 20px 20px 20px 20px;-webkit-border-radius: 20px 20px 20px 20px;margin: 0px 15px 1px 5px;border:none;padding:0px;float:left;\"><a href=\""+aff+"\" target=\"_blank\" rel=\"nofollow\"><strong>"+name+" "+version+"（"+price+"）</strong></a><br>カテゴリ："+genres+"<br>販売元：<a href=\""+selleraff+"\" target=\"_blank\">"+artist+"</a>（サイズ："+appsize+"）<br>全てのバージョンの評価: "+rating+"（"+cnt+"件の評価）<br style=\"clear: both\"></div>\n";
+         } else {
+             tmpl="<div style=\"background-color:azure;margin:10px 10px 10px 10px;padding:17px 10px 12px 10px;border-radius:15px;-moz-border-radius:15px;-webkit-border-radius:15px;min-height:100px;\"><img width=\""+iconw+"\" class=\"alignleft\" src=\""+icon100+"\" style=\"margin: 0px 15px 1px 5px;border:none;padding:0px;float:left;\"><a href=\""+aff+"\" target=\"_blank\" rel=\"nofollow\"><strong>"+name+" "+version+"（"+price+"）</strong></a><br>カテゴリ："+genres+"<br>販売元：<a href=\""+selleraff+"\" target=\"_blank\">"+artist+"</a>（サイズ："+appsize+"）<br>全てのバージョンの評価: "+rating+"（"+cnt+"件の評価）<br style=\"clear: both\"></div>\n";
+         }
+         
+         body += "<tr><td>"+device+"</td><td valign=top><img style=\"-webkit-border-radius: 10px 10px 10px 10px;padding:0px;border:none;float:left;\" width=\"50\" src=\""+icon60+"\"></td><td valign=top><a style=\"text-decoration:none\"href=\""+editor+encodeURIComponent(tmpl)+"\">"+name+" "+version+"</a><br>"+price+" ("+artist+")</td></tr>\n";
+    }
+    return body;
+}
